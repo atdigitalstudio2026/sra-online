@@ -1,0 +1,6 @@
+{
+  "name": "ONLINE STORE - FMCG Product Catalog",
+  "description": "Katalog produk dan online store komoditas pangan pilihan (FMCG) dengan arsitektur modular, integrasi Supabase, dan panel admin.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
