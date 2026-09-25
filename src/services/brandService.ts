@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Brand } from '../types';
 import { INITIAL_BRANDS } from './seedData';
+import { autoSeedIfDatabaseEmpty } from './databaseSyncService';
 
 const LOCAL_STORAGE_KEY = 'fmcg_brands';
 
@@ -42,7 +43,15 @@ export async function getBrands(includeInactive = false): Promise<Brand[]> {
       const locals = getLocalBrands();
       return includeInactive ? locals : locals.filter((b) => b.is_active);
     }
-    return data || [];
+
+    if (data && data.length > 0) {
+      return data;
+    }
+
+    // If table is empty, trigger autoSeed in background and return local brands
+    autoSeedIfDatabaseEmpty().catch(() => {});
+    const locals = getLocalBrands();
+    return includeInactive ? locals : locals.filter((b) => b.is_active);
   }
 
   const locals = getLocalBrands();

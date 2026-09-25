@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Category } from '../types';
 import { INITIAL_CATEGORIES } from './seedData';
+import { autoSeedIfDatabaseEmpty } from './databaseSyncService';
 
 const LOCAL_STORAGE_KEY = 'fmcg_categories';
 
@@ -43,7 +44,15 @@ export async function getCategories(includeInactive = false): Promise<Category[]
       const locals = getLocalCategories();
       return includeInactive ? locals : locals.filter((c) => c.is_active);
     }
-    return data || [];
+
+    if (data && data.length > 0) {
+      return data;
+    }
+
+    // If table is empty, trigger autoSeed in background and return local categories
+    autoSeedIfDatabaseEmpty().catch(() => {});
+    const locals = getLocalCategories();
+    return includeInactive ? locals : locals.filter((c) => c.is_active);
   }
 
   const locals = getLocalCategories();

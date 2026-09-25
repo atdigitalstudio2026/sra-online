@@ -12,6 +12,7 @@ import { INITIAL_PRODUCTS, INITIAL_CATEGORIES, INITIAL_BRANDS } from './seedData
 import { uploadProductImage } from './storageService';
 import { recordProductSlugChange, checkProductSlugRedirect } from './contentService';
 import { checkAndTriggerStockAlerts, checkAndTriggerPriceAlerts } from './alertService';
+import { autoSeedIfDatabaseEmpty } from './databaseSyncService';
 
 const LOCAL_STORAGE_KEY = 'fmcg_products';
 
@@ -141,6 +142,21 @@ export async function getProducts(
       });
 
       const total = count || 0;
+
+      // If database has 0 products on general catalog query, trigger autoSeed and serve local catalog
+      if (
+        total === 0 &&
+        !params.search &&
+        !params.category_id &&
+        !params.category_slug &&
+        !params.brand_id &&
+        !params.min_price &&
+        !params.max_price
+      ) {
+        autoSeedIfDatabaseEmpty().catch(() => {});
+        return filterLocalProducts(params, page, limit);
+      }
+
       return {
         data: productsWithPrimary,
         total,
@@ -299,7 +315,7 @@ export async function getProductBySlug(slug: string): Promise<ProductWithDetails
         return getLocalProductBySlug(slug);
       }
 
-      if (!data) return null;
+      if (!data) return getLocalProductBySlug(slug);
 
       const sortedImages = (data.images || []).sort(
         (a: ProductImage, b: ProductImage) => a.sort_order - b.sort_order
@@ -369,7 +385,7 @@ export async function getProductById(id: string): Promise<ProductWithDetails | n
         .eq('id', id)
         .single();
 
-      if (error) {
+      if (error || !data) {
         return getLocalProductById(id);
       }
 
