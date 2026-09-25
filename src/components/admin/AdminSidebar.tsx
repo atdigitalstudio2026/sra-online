@@ -17,6 +17,9 @@ import {
   FileSpreadsheet,
   Boxes,
   ShieldAlert,
+  Activity,
+  HardDriveDownload,
+  Megaphone,
 } from 'lucide-react';
 import { siteConfig } from '../../config/site';
 import { isSupabaseConfigured, testSupabaseConnection } from '../../lib/supabase';
@@ -73,8 +76,14 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     { label: 'Katalog Produk', path: '/admin/products', icon: Package },
     { label: 'Transaksi Pembayaran', path: '/admin/payments', icon: CreditCard },
     { label: 'Metode Pengiriman', path: '/admin/shipping-methods', icon: Truck },
+    { label: 'Pusat Marketing & Banner', path: '/admin/marketing', icon: Megaphone },
     { label: 'Pengguna & Peran', path: '/admin/users', icon: ShieldAlert },
+    { label: 'Monitoring Sistem', path: '/admin/system-health', icon: Activity },
+    { label: 'Log Audit Keamanan', path: '/admin/security-logs', icon: ShieldAlert },
+    { label: 'Pengaturan & Fitur', path: '/admin/system-settings', icon: Sliders },
+    { label: 'Cadangan & Ekspor Data', path: '/admin/backup', icon: HardDriveDownload },
   ];
+
 
   const handleNav = (path: string) => {
     onNavigate(path);
@@ -103,9 +112,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
               key={item.path}
               type="button"
               onClick={() => handleNav(item.path)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-colors text-left ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all text-left ${
                 isActive
-                  ? 'bg-amber-800/90 text-white shadow-xs'
+                  ? 'bg-emerald-900 text-white shadow-xs'
                   : 'text-stone-400 hover:text-stone-100 hover:bg-stone-800/60'
               }`}
             >

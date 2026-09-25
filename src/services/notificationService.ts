@@ -64,8 +64,9 @@ function saveLocalNotifications(list: NotificationItem[]) {
 export async function getNotifications(params?: {
   limit?: number;
   unreadOnly?: boolean;
+  userId?: string | null;
 }): Promise<NotificationItem[]> {
-  const limit = params?.limit || 20;
+  const limit = params?.limit || 50;
 
   if (isSupabaseConfigured() && supabase) {
     try {
@@ -75,6 +76,9 @@ export async function getNotifications(params?: {
         .order('created_at', { ascending: false })
         .limit(limit);
 
+      if (params?.userId) {
+        query = query.or(`user_id.eq.${params.userId},user_id.is.null`);
+      }
       if (params?.unreadOnly) {
         query = query.eq('is_read', false);
       }
@@ -89,10 +93,59 @@ export async function getNotifications(params?: {
   }
 
   let local = getLocalNotifications();
+  if (params?.userId) {
+    local = local.filter((n) => !n.user_id || n.user_id === params.userId);
+  }
   if (params?.unreadOnly) {
     local = local.filter((n) => !n.is_read);
   }
   return local.slice(0, limit);
+}
+
+/**
+ * Get count of unread notifications for a customer
+ */
+export async function getCustomerUnreadCount(userId?: string | null): Promise<number> {
+  const items = await getNotifications({ unreadOnly: true, userId: userId || null });
+  return items.length;
+}
+
+/**
+ * Send targeted customer notification (Section 29, 33)
+ */
+export async function sendCustomerNotification(
+  userId: string | null,
+  type: NotificationType,
+  title: string,
+  message: string,
+  entityType?: 'order' | 'product' | 'promotion' | 'system',
+  entityId?: string
+): Promise<NotificationItem> {
+  const record: NotificationItem = {
+    id: crypto.randomUUID(),
+    user_id: userId,
+    type,
+    title,
+    message,
+    entity_type: entityType || null,
+    entity_id: entityId || null,
+    is_read: false,
+    created_at: new Date().toISOString(),
+  };
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('notifications').insert(record);
+    } catch (e) {
+      console.warn('Supabase sendCustomerNotification error:', e);
+    }
+  }
+
+  const list = getLocalNotifications();
+  list.unshift(record);
+  saveLocalNotifications(list);
+
+  return record;
 }
 
 export async function markNotificationAsRead(id: string): Promise<void> {

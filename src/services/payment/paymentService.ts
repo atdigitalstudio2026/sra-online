@@ -16,6 +16,9 @@ import { getOrderById, getOrderByNumber } from '../orderService';
 import { PaymentProvider } from './paymentProvider';
 import { MidtransProvider } from './midtransProvider';
 import { XenditProvider } from './xenditProvider';
+import { sendCustomerNotification } from '../notificationService';
+import { recordFunnelEvent } from '../../utils/marketing';
+import { formatRupiah } from '../../utils/formatters';
 
 const LOCAL_PAYMENTS_KEY = 'fmcg_payments';
 const LOCAL_PAYMENT_METHODS_KEY = 'fmcg_payment_methods';
@@ -692,6 +695,24 @@ export async function markOrderAsPaid(
     localStorage.setItem('fmcg_order_history', JSON.stringify(history));
   } catch (e) {
     console.warn('Failed local history append', e);
+  }
+
+  // Tahap 9: Payment Success Customer Notification & Conversion Funnel Event (Section 33, 52)
+  try {
+    const updatedOrder = await getOrderById(orderId);
+    if (updatedOrder) {
+      recordFunnelEvent('order_paid', { order_id: orderId, user_id: updatedOrder.user_id });
+      await sendCustomerNotification(
+        updatedOrder.user_id,
+        'payment_success',
+        'Pembayaran Berhasil Dikonfirmasi',
+        `Pembayaran senilai ${formatRupiah(updatedOrder.grand_total)} untuk pesanan ${updatedOrder.order_number} telah berhasil diterima. Pesanan Anda segera disiapkan ke logistik.`,
+        'order',
+        updatedOrder.order_number
+      );
+    }
+  } catch (notifErr) {
+    console.warn('Could not send payment success notification:', notifErr);
   }
 }
 

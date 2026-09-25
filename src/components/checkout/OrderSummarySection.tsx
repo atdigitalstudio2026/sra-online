@@ -112,7 +112,7 @@ export const OrderSummarySection: React.FC<OrderSummarySectionProps> = ({
           type="button"
           onClick={onConfirmOrder}
           disabled={isSubmitting || hasErrors}
-          className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-stone-950 hover:bg-stone-800 disabled:bg-stone-300 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-xl shadow-sm transition-all hover:translate-y-[-1px]"
+          className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-950 hover:bg-emerald-900 disabled:bg-stone-300 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-bold rounded-xl shadow-md transition-all hover:translate-y-[-1px] active:scale-95"
         >
           {isSubmitting ? (
             <>

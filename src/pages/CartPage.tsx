@@ -301,6 +301,30 @@ export const CartPage: React.FC<CartPageProps> = ({ onNavigate }) => {
               Ringkasan Belanja
             </h2>
 
+            {/* Free Shipping Progress in Cart Page */}
+            <div className="p-3.5 bg-emerald-50/80 border border-emerald-100 rounded-xl space-y-1.5">
+              <div className="flex items-center justify-between text-xs font-semibold">
+                <span className="flex items-center gap-1.5 text-emerald-950">
+                  <Truck className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Gratis Ongkir (Min. Rp250.000)</span>
+                </span>
+                <span className="text-[11px] text-emerald-800">
+                  {subtotal >= 250000 ? 'Tercapai!' : `${Math.round((subtotal / 250000) * 100)}%`}
+                </span>
+              </div>
+              <div className="w-full h-1.5 bg-emerald-200/60 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-800 rounded-full transition-all duration-300"
+                  style={{ width: `${Math.min(100, Math.round((subtotal / 250000) * 100))}%` }}
+                />
+              </div>
+              {subtotal < 250000 && (
+                <p className="text-[10px] text-stone-500">
+                  Tambah <strong>{formatRupiah(250000 - subtotal)}</strong> lagi untuk klaim Bebas Ongkir.
+                </p>
+              )}
+            </div>
+
             <div className="space-y-3 text-xs text-stone-600">
               <div className="flex items-center justify-between">
                 <span>Total Kuantitas Komoditas</span>
@@ -310,24 +334,24 @@ export const CartPage: React.FC<CartPageProps> = ({ onNavigate }) => {
               </div>
               <div className="flex items-center justify-between">
                 <span>Estimasi Biaya Muatan</span>
-                <span className="text-stone-400">Dihitung di Tahap 3</span>
+                <span className="text-emerald-800 font-medium">Dihitung saat checkout</span>
               </div>
             </div>
 
             <div className="pt-3 border-t border-stone-100 flex items-baseline justify-between">
               <span className="text-sm font-bold text-stone-900">Subtotal Belanja</span>
-              <span className="text-xl font-bold text-stone-950 tabular-nums">
+              <span className="text-2xl font-extrabold text-emerald-950 tabular-nums">
                 {formatRupiah(subtotal)}
               </span>
             </div>
 
-            {/* Checkout Placeholder Button (Section 33) */}
+            {/* Checkout Action Buttons */}
             <div className="space-y-2 pt-2">
               <button
                 type="button"
                 onClick={() => onNavigate('/checkout')}
                 disabled={hasInactiveItems || isSyncing}
-                className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-stone-950 hover:bg-stone-800 disabled:bg-stone-300 text-white text-xs font-semibold rounded-xl shadow-sm transition-all hover:translate-y-[-1px]"
+                className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-950 hover:bg-emerald-900 disabled:bg-stone-300 text-white text-xs sm:text-sm font-bold rounded-xl shadow-md transition-all hover:translate-y-[-1px] active:scale-95"
               >
                 <span>Lanjut ke Checkout</span>
                 <ArrowRight className="w-4 h-4" />
@@ -338,7 +362,7 @@ export const CartPage: React.FC<CartPageProps> = ({ onNavigate }) => {
                 onClick={() => onNavigate('/products')}
                 className="w-full py-2.5 bg-white hover:bg-stone-50 text-stone-700 border border-stone-200 text-xs font-semibold rounded-xl transition-colors text-center"
               >
-                Lanjutkan Belanja
+                Lanjutkan Belanja Komoditas
               </button>
             </div>
 

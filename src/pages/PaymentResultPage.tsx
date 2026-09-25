@@ -215,7 +215,7 @@ export const PaymentResultPage: React.FC<PaymentResultPageProps> = ({ onNavigate
           <button
             type="button"
             onClick={() => onNavigate(`/orders/${orderNumber}`)}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 bg-stone-950 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl transition-all shadow-sm"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 bg-emerald-950 hover:bg-emerald-900 text-white text-xs font-semibold rounded-xl transition-all shadow-sm active:scale-95"
           >
             <span>Lihat Detail Pesanan</span>
             <ArrowRight className="w-3.5 h-3.5" />

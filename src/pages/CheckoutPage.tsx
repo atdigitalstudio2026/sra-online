@@ -251,15 +251,22 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigate }) => {
           </h1>
         </div>
 
-        {/* Progress Step Indicator (Section 34) */}
-        <div className="flex items-center gap-2 text-xs font-medium text-stone-400">
-          <span className="text-stone-900 font-bold">1. Keranjang</span>
-          <span aria-hidden="true">→</span>
-          <span className="text-amber-900 font-bold bg-amber-50 px-2 py-0.5 rounded">
-            2. Pengiriman & Konfirmasi
+        {/* Progress Step Indicator */}
+        <div className="flex items-center gap-2 sm:gap-3 text-xs font-semibold">
+          <span className="flex items-center gap-1 text-emerald-800">
+            <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-900 flex items-center justify-center text-[11px] font-bold">1</span>
+            <span className="hidden sm:inline">Kontak</span>
           </span>
-          <span aria-hidden="true">→</span>
-          <span>3. Selesai</span>
+          <span className="text-stone-300">→</span>
+          <span className="flex items-center gap-1 text-emerald-950">
+            <span className="w-5 h-5 rounded-full bg-emerald-900 text-white flex items-center justify-center text-[11px] font-bold">2</span>
+            <span>Alamat & Ekspedisi</span>
+          </span>
+          <span className="text-stone-300">→</span>
+          <span className="flex items-center gap-1 text-stone-400">
+            <span className="w-5 h-5 rounded-full bg-stone-100 text-stone-500 flex items-center justify-center text-[11px] font-bold">3</span>
+            <span>Pembayaran</span>
+          </span>
         </div>
       </div>
 

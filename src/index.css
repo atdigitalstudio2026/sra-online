@@ -1,11 +1,47 @@
 @import "tailwindcss";
 
 @layer base {
+  :root {
+    --brand-primary: #064e3b;
+    --brand-primary-hover: #065f46;
+    --brand-secondary: #ea580c;
+    --brand-secondary-hover: #c2410c;
+    --brand-gold: #d97706;
+    --brand-bg: #FAF9F6;
+    --brand-surface: #FFFFFF;
+    --brand-text: #1C1917;
+    --brand-border: #E7E5E4;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: var(--brand-bg);
+    color: var(--brand-text);
   }
 
   .font-serif {
     font-family: 'Playfair Display', Georgia, Cambria, 'Times New Roman', Times, serif;
   }
+
+  /* Custom subtle scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #f1f0ea;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #d6d3c7;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #a8a29e;
+  }
 }
+

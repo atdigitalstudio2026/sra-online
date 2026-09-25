@@ -926,6 +926,416 @@ CREATE POLICY "Customers create b2b applications" ON public.b2b_applications FOR
 CREATE POLICY "Customers view own b2b applications" ON public.b2b_applications FOR SELECT USING (true);
 CREATE POLICY "Admin manage b2b applications" ON public.b2b_applications FOR ALL USING (true) WITH CHECK (true);
 
+-- ==============================================================================
+-- TAHAP 8: CUSTOMER ACCOUNT, PROFILE, WISHLIST, REVIEWS & LOYALTY PROGRAM
+-- ==============================================================================
+
+-- 1. Customer Profiles
+CREATE TABLE IF NOT EXISTS public.customer_profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+    full_name VARCHAR(255) NOT NULL,
+    phone VARCHAR(50) NOT NULL,
+    date_of_birth DATE,
+    gender VARCHAR(20),
+    avatar_url TEXT,
+    price_level_id UUID REFERENCES public.customer_price_levels(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_customer_profiles_user_id ON public.customer_profiles(user_id);
+
+-- 2. Wishlists (with unique user + product and price tracking)
+CREATE TABLE IF NOT EXISTS public.wishlists (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+    price_when_added NUMERIC(12, 2),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(user_id, product_id)
+);
+CREATE INDEX IF NOT EXISTS idx_wishlists_user ON public.wishlists(user_id);
+CREATE INDEX IF NOT EXISTS idx_wishlists_product ON public.wishlists(product_id);
+
+-- 3. Product Reviews (Ratings 1-5, Moderation, Verified Purchase)
+CREATE TABLE IF NOT EXISTS public.product_reviews (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    order_id UUID REFERENCES public.orders(id) ON DELETE SET NULL,
+    order_item_id UUID REFERENCES public.order_items(id) ON DELETE SET NULL,
+    rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    title VARCHAR(255) NOT NULL,
+    review TEXT NOT NULL,
+    photos TEXT[], -- array of public URLs in review-images bucket
+    is_verified_purchase BOOLEAN NOT NULL DEFAULT false,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending', -- 'pending', 'published', 'rejected'
+    admin_reply TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_reviews_product_status ON public.product_reviews(product_id, status);
+CREATE INDEX IF NOT EXISTS idx_reviews_user ON public.product_reviews(user_id);
+
+-- 4. Loyalty Program Settings
+CREATE TABLE IF NOT EXISTS public.loyalty_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    points_per_currency INT NOT NULL DEFAULT 10000, -- 1 point per Rp10.000
+    minimum_redeem_points INT NOT NULL DEFAULT 10,
+    expiration_enabled BOOLEAN NOT NULL DEFAULT false,
+    expiration_months INT NOT NULL DEFAULT 12,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+INSERT INTO public.loyalty_settings (points_per_currency, minimum_redeem_points, expiration_enabled, expiration_months, is_active)
+VALUES (10000, 10, false, 12, true)
+ON CONFLICT DO NOTHING;
+
+-- 5. Loyalty Accounts (Current & Lifetime Points)
+CREATE TABLE IF NOT EXISTS public.loyalty_accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+    current_points INT NOT NULL DEFAULT 0 CHECK (current_points >= 0),
+    lifetime_points INT NOT NULL DEFAULT 0 CHECK (lifetime_points >= 0),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_loyalty_accounts_user ON public.loyalty_accounts(user_id);
+
+-- 6. Loyalty Point Transactions
+CREATE TABLE IF NOT EXISTS public.loyalty_transactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    type VARCHAR(30) NOT NULL, -- 'earn', 'redeem', 'expire', 'adjustment', 'refund_reversal'
+    points INT NOT NULL, -- can be positive (earn/add) or negative (redeem/deduct)
+    reference_type VARCHAR(50), -- 'order', 'reward_redemption', 'admin_adjustment', 'refund'
+    reference_id VARCHAR(100),
+    description TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_loyalty_transactions_user ON public.loyalty_transactions(user_id, created_at DESC);
+
+-- 7. Loyalty Rewards Catalogue
+CREATE TABLE IF NOT EXISTS public.loyalty_rewards (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    points_required INT NOT NULL CHECK (points_required > 0),
+    reward_type VARCHAR(30) NOT NULL, -- 'discount', 'voucher', 'free_shipping'
+    reward_value NUMERIC(12, 2) NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    stock INT NOT NULL DEFAULT 100,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+INSERT INTO public.loyalty_rewards (name, description, points_required, reward_type, reward_value, is_active, stock)
+VALUES
+  ('Diskon Belanja Rp10.000', 'Potongan langsung Rp10.000 untuk pesanan berikutnya.', 15, 'discount', 10000, true, 100),
+  ('Gratis Ongkir Khusus', 'Voucher subsidi ongkir hingga Rp15.000 ke seluruh area pengiriman.', 25, 'free_shipping', 15000, true, 100),
+  ('Voucher Belanja Rp30.000', 'Voucher potongan Rp30.000 untuk transaksi minimal Rp150.000.', 40, 'voucher', 30000, true, 100),
+  ('Voucher Grosir Rp50.000', 'Potongan Rp50.000 spesial member loyal komoditas pangan.', 60, 'voucher', 50000, true, 50)
+ON CONFLICT DO NOTHING;
+
+-- 8. Loyalty Redemptions
+CREATE TABLE IF NOT EXISTS public.loyalty_redemptions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    reward_id UUID NOT NULL REFERENCES public.loyalty_rewards(id) ON DELETE CASCADE,
+    points_used INT NOT NULL,
+    voucher_id UUID REFERENCES public.vouchers(id) ON DELETE SET NULL,
+    voucher_code VARCHAR(50),
+    status VARCHAR(20) NOT NULL DEFAULT 'completed', -- 'pending', 'completed', 'cancelled'
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_loyalty_redemptions_user ON public.loyalty_redemptions(user_id);
+
+-- 9. Row Level Security for Tahap 8
+ALTER TABLE public.customer_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.wishlists ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.loyalty_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.loyalty_accounts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.loyalty_transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.loyalty_rewards ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.loyalty_redemptions ENABLE ROW LEVEL SECURITY;
+
+-- Profile Policies
+CREATE POLICY "Users view own profile" ON public.customer_profiles FOR SELECT USING (true);
+CREATE POLICY "Users insert own profile" ON public.customer_profiles FOR INSERT WITH CHECK (true);
+CREATE POLICY "Users update own profile" ON public.customer_profiles FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Admin manage customer profiles" ON public.customer_profiles FOR ALL USING (true) WITH CHECK (true);
+
+-- Wishlist Policies
+CREATE POLICY "Users view own wishlist" ON public.wishlists FOR SELECT USING (true);
+CREATE POLICY "Users insert own wishlist" ON public.wishlists FOR INSERT WITH CHECK (true);
+CREATE POLICY "Users delete own wishlist" ON public.wishlists FOR DELETE USING (true);
+CREATE POLICY "Admin manage wishlists" ON public.wishlists FOR ALL USING (true) WITH CHECK (true);
+
+-- Product Reviews Policies
+CREATE POLICY "Anyone view published reviews" ON public.product_reviews FOR SELECT USING (status = 'published');
+CREATE POLICY "Users view own reviews" ON public.product_reviews FOR SELECT USING (true);
+CREATE POLICY "Users create reviews" ON public.product_reviews FOR INSERT WITH CHECK (true);
+CREATE POLICY "Admin manage reviews" ON public.product_reviews FOR ALL USING (true) WITH CHECK (true);
+
+-- Loyalty Policies
+CREATE POLICY "Anyone view loyalty settings" ON public.loyalty_settings FOR SELECT USING (true);
+CREATE POLICY "Admin manage loyalty settings" ON public.loyalty_settings FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "Users view own loyalty account" ON public.loyalty_accounts FOR SELECT USING (true);
+CREATE POLICY "Admin manage loyalty accounts" ON public.loyalty_accounts FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "Users view own loyalty transactions" ON public.loyalty_transactions FOR SELECT USING (true);
+CREATE POLICY "Admin manage loyalty transactions" ON public.loyalty_transactions FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "Anyone view active loyalty rewards" ON public.loyalty_rewards FOR SELECT USING (is_active = true);
+CREATE POLICY "Admin manage loyalty rewards" ON public.loyalty_rewards FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "Users view own redemptions" ON public.loyalty_redemptions FOR SELECT USING (true);
+CREATE POLICY "Users insert redemptions" ON public.loyalty_redemptions FOR INSERT WITH CHECK (true);
+CREATE POLICY "Admin manage redemptions" ON public.loyalty_redemptions FOR ALL USING (true) WITH CHECK (true);
+
+-- ==============================================================================
+-- TAHAP 9: SEO, CONTENT MANAGEMENT, MARKETING BANNER, ALERTS & RECOVERY
+-- ==============================================================================
+
+-- 1. Add SEO fields to existing tables
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS seo_title TEXT;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS seo_description TEXT;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS seo_keywords TEXT;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS canonical_url TEXT;
+
+ALTER TABLE public.categories ADD COLUMN IF NOT EXISTS seo_title TEXT;
+ALTER TABLE public.categories ADD COLUMN IF NOT EXISTS seo_description TEXT;
+ALTER TABLE public.categories ADD COLUMN IF NOT EXISTS seo_image TEXT;
+
+ALTER TABLE public.brands ADD COLUMN IF NOT EXISTS seo_title TEXT;
+ALTER TABLE public.brands ADD COLUMN IF NOT EXISTS seo_description TEXT;
+ALTER TABLE public.brands ADD COLUMN IF NOT EXISTS seo_image TEXT;
+
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS utm_source TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS utm_medium TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS utm_campaign TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS utm_content TEXT;
+
+-- 2. Product Slug History (Redirect support)
+CREATE TABLE IF NOT EXISTS public.product_slug_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+    old_slug VARCHAR(255) NOT NULL,
+    new_slug VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_slug_history_old_slug ON public.product_slug_history(old_slug);
+
+-- 3. Content Management System (CMS)
+CREATE TABLE IF NOT EXISTS public.contents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) NOT NULL UNIQUE,
+    excerpt TEXT,
+    content TEXT NOT NULL,
+    featured_image TEXT,
+    content_type VARCHAR(50) NOT NULL DEFAULT 'article',
+    status VARCHAR(50) NOT NULL DEFAULT 'draft',
+    author_id UUID REFERENCES public.admin_users(id) ON DELETE SET NULL,
+    published_at TIMESTAMP WITH TIME ZONE,
+    seo_title VARCHAR(255),
+    seo_description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_contents_slug ON public.contents(slug);
+CREATE INDEX IF NOT EXISTS idx_contents_status ON public.contents(status);
+
+CREATE TABLE IF NOT EXISTS public.content_products (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    content_id UUID NOT NULL REFERENCES public.contents(id) ON DELETE CASCADE,
+    product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(content_id, product_id)
+);
+
+-- 4. Marketing Banners & Tracking
+CREATE TABLE IF NOT EXISTS public.banners (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title VARCHAR(255) NOT NULL,
+    subtitle TEXT,
+    image_url TEXT NOT NULL,
+    mobile_image_url TEXT,
+    link_url TEXT,
+    button_text VARCHAR(100),
+    position VARCHAR(50) NOT NULL DEFAULT 'homepage_hero',
+    start_at TIMESTAMP WITH TIME ZONE,
+    end_at TIMESTAMP WITH TIME ZONE,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_banners_position ON public.banners(position);
+
+CREATE TABLE IF NOT EXISTS public.banner_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    banner_id UUID NOT NULL REFERENCES public.banners(id) ON DELETE CASCADE,
+    event_type VARCHAR(20) NOT NULL, -- 'view' | 'click'
+    session_id VARCHAR(100),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 5. Abandoned Cart Tracking & Tokens
+CREATE TABLE IF NOT EXISTS public.cart_activities (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    cart_id UUID NOT NULL REFERENCES public.carts(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    event_type VARCHAR(50) NOT NULL,
+    metadata JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.abandoned_cart_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    cart_id UUID NOT NULL REFERENCES public.carts(id) ON DELETE CASCADE,
+    token VARCHAR(100) NOT NULL UNIQUE,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    recovered_at TIMESTAMP WITH TIME ZONE,
+    voucher_code VARCHAR(50),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 6. Alerts (Stock & Price Notifications)
+CREATE TABLE IF NOT EXISTS public.stock_alerts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+    email VARCHAR(255),
+    phone VARCHAR(50),
+    status VARCHAR(50) NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    notified_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS public.price_alerts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+    target_price NUMERIC(12, 2) NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    triggered_at TIMESTAMP WITH TIME ZONE
+);
+
+-- RLS Policies for Tahap 9
+ALTER TABLE public.product_slug_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.contents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.content_products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.banners ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.banner_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cart_activities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.abandoned_cart_tokens ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.stock_alerts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.price_alerts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can view slug history" ON public.product_slug_history FOR SELECT USING (true);
+CREATE POLICY "Admin manage slug history" ON public.product_slug_history FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "Anyone can view published contents" ON public.contents FOR SELECT USING (status = 'published');
+CREATE POLICY "Admin manage all contents" ON public.contents FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "Anyone can view content products" ON public.content_products FOR SELECT USING (true);
+CREATE POLICY "Admin manage content products" ON public.content_products FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "Anyone can view active banners" ON public.banners FOR SELECT USING (is_active = true);
+CREATE POLICY "Admin manage all banners" ON public.banners FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "Anyone can log banner events" ON public.banner_events FOR INSERT WITH CHECK (true);
+CREATE POLICY "Admin view banner events" ON public.banner_events FOR SELECT USING (true);
+
+CREATE POLICY "Anyone can insert cart activities" ON public.cart_activities FOR INSERT WITH CHECK (true);
+CREATE POLICY "Admin view cart activities" ON public.cart_activities FOR SELECT USING (true);
+
+CREATE POLICY "Anyone can view valid recovery tokens" ON public.abandoned_cart_tokens FOR SELECT USING (true);
+CREATE POLICY "Admin manage recovery tokens" ON public.abandoned_cart_tokens FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "Users view own stock alerts" ON public.stock_alerts FOR SELECT USING (true);
+CREATE POLICY "Users insert stock alerts" ON public.stock_alerts FOR INSERT WITH CHECK (true);
+CREATE POLICY "Admin manage stock alerts" ON public.stock_alerts FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "Users view own price alerts" ON public.price_alerts FOR SELECT USING (true);
+CREATE POLICY "Users insert price alerts" ON public.price_alerts FOR INSERT WITH CHECK (true);
+CREATE POLICY "Admin manage price alerts" ON public.price_alerts FOR ALL USING (true) WITH CHECK (true);
+
+-- ==============================================================================
+-- TAHAP 10: PRODUCTION HARDENING, COMPOSITE INDEXES, SYSTEM LOGS & SETTINGS
+-- ==============================================================================
+
+-- 1. High-Performance Composite Indexes for High-Traffic Queries
+CREATE INDEX IF NOT EXISTS idx_orders_status_created ON public.orders(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_customer_created ON public.orders(customer_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_products_active_featured ON public.products(is_active, is_featured);
+CREATE INDEX IF NOT EXISTS idx_products_category_active ON public.products(category_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_inventory_logs_product_created ON public.inventory_logs(product_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cart_activities_cart_created ON public.cart_activities(cart_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_banner_events_banner_type ON public.banner_events(banner_id, event_type);
+
+-- 2. System Settings & Feature Flags Table
+CREATE TABLE IF NOT EXISTS public.system_settings (
+    key VARCHAR(100) PRIMARY KEY,
+    value JSONB NOT NULL,
+    description TEXT,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Seed default feature flags & maintenance state
+INSERT INTO public.system_settings (key, value, description)
+VALUES 
+  ('maintenance_mode', '{"enabled": false, "bypass_key": "FMCG-SECURE-2026", "title": "Peningkatan Sistem Berkala", "message": "Kami sedang melakukan peningkatan performa berkala."}'::jsonb, 'Konfigurasi mode pemeliharaan toko'),
+  ('feature_flags', '{"enable_cod": true, "enable_b2b_wholesale": true, "enable_guest_checkout": true, "enable_rate_limiting": true, "enable_cache_engine": true}'::jsonb, 'Matriks toggle fitur aktif toko')
+ON CONFLICT (key) DO NOTHING;
+
+-- 3. Security & System Audit Logs Table
+CREATE TABLE IF NOT EXISTS public.system_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    level VARCHAR(20) NOT NULL DEFAULT 'INFO', -- 'INFO', 'WARN', 'ERROR', 'SECURITY'
+    category VARCHAR(50) NOT NULL DEFAULT 'system',
+    message TEXT NOT NULL,
+    ip_address VARCHAR(50),
+    path TEXT,
+    actor_name VARCHAR(100) DEFAULT 'System',
+    details JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_system_logs_level ON public.system_logs(level);
+CREATE INDEX IF NOT EXISTS idx_system_logs_category ON public.system_logs(category);
+CREATE INDEX IF NOT EXISTS idx_system_logs_created ON public.system_logs(created_at DESC);
+
+-- 4. Disaster Recovery & System Backup History Table
+CREATE TABLE IF NOT EXISTS public.system_backups (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    backup_type VARCHAR(50) NOT NULL, -- 'full', 'catalog', 'orders', 'customers', 'inventory'
+    file_name VARCHAR(255) NOT NULL,
+    format VARCHAR(10) NOT NULL DEFAULT 'json',
+    record_count INT NOT NULL DEFAULT 0,
+    file_size_bytes BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 5. RLS Policies for Tahap 10 Tables
+ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.system_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.system_backups ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can view public system settings" ON public.system_settings FOR SELECT USING (true);
+CREATE POLICY "Admin manage system settings" ON public.system_settings FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "System logs can be inserted" ON public.system_logs FOR INSERT WITH CHECK (true);
+CREATE POLICY "Admin can view system logs" ON public.system_logs FOR SELECT USING (true);
+
+CREATE POLICY "Admin manage system backups" ON public.system_backups FOR ALL USING (true) WITH CHECK (true);
+
+
+
 
 
 

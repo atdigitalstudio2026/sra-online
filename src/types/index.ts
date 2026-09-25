@@ -4,6 +4,8 @@ export interface Category {
   slug: string;
   description: string | null;
   image_url: string | null;
+  seo_title?: string | null;
+  seo_description?: string | null;
   is_active: boolean;
   sort_order: number;
   created_at: string;
@@ -16,6 +18,8 @@ export interface Brand {
   slug: string;
   description: string | null;
   logo_url: string | null;
+  seo_title?: string | null;
+  seo_description?: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -53,6 +57,10 @@ export interface Product {
   is_featured: boolean;
   is_best_seller: boolean;
   price_tiers?: ProductPrice[];
+  seo_title?: string | null;
+  seo_description?: string | null;
+  seo_keywords?: string | null;
+  canonical_url?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -62,6 +70,8 @@ export interface ProductWithDetails extends Product {
   brand?: Brand | null;
   images?: ProductImage[];
   primary_image?: string;
+  average_rating?: number;
+  review_count?: number;
 }
 
 export type SortField = 'created_at' | 'name' | 'price';
@@ -155,6 +165,10 @@ export interface ProductFormData {
   is_active: boolean;
   is_featured: boolean;
   is_best_seller: boolean;
+  seo_title?: string;
+  seo_description?: string;
+  seo_keywords?: string;
+  canonical_url?: string;
   images: {
     id?: string;
     image_url: string;
@@ -207,7 +221,7 @@ export type OrderStatus =
   | 'completed'
   | 'cancelled';
 
-export type PaymentStatus = 'unpaid' | 'paid' | 'failed' | 'refunded';
+export type PaymentStatus = 'unpaid' | 'paid' | 'failed' | 'refunded' | 'pending';
 
 export interface Order {
   id: string;
@@ -237,6 +251,14 @@ export interface Order {
   grand_total: number;
   status: OrderStatus;
   payment_status: PaymentStatus;
+  payment_method?: string | null;
+  tracking_number?: string | null;
+  courier?: string | null;
+  tracking_status?: string | null;
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
+  utm_content?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -247,8 +269,10 @@ export interface OrderItem {
   product_id: string;
   product_name: string;
   product_sku: string;
+  sku?: string;
   product_image?: string | null;
   unit_price: number; // Final effective unit price
+  price?: number; // Compatibility alias
   original_unit_price?: number;
   discount_amount?: number;
   final_unit_price?: number;
@@ -275,6 +299,10 @@ export interface OrderWithDetails extends Order {
   shipping_method?: ShippingMethod | null;
   payments?: PaymentRecord[];
   latest_payment?: PaymentRecord | null;
+  payment_method?: string | null;
+  tracking_number?: string | null;
+  courier?: string | null;
+  tracking_status?: string | null;
 }
 
 export interface CheckoutFormData {
@@ -440,7 +468,19 @@ export type NotificationType =
   | 'new_order'
   | 'payment_received'
   | 'low_stock'
-  | 'shipment_issue';
+  | 'shipment_issue'
+  | 'order_created'
+  | 'payment_success'
+  | 'payment_failed'
+  | 'payment_reminder'
+  | 'order_shipped'
+  | 'order_delivered'
+  | 'order_cancelled'
+  | 'promotion'
+  | 'voucher'
+  | 'wishlist_price_drop'
+  | 'back_in_stock'
+  | 'abandoned_cart_reminder';
 
 export interface NotificationItem {
   id: string;
@@ -789,6 +829,509 @@ export interface MarginAnalytics {
   gross_profit: number;
   gross_margin_percentage: number;
 }
+
+// ==============================================================================
+// TAHAP 8 — CUSTOMER ACCOUNT, PROFILE, WISHLIST, REVIEW & LOYALTY
+// ==============================================================================
+
+export interface CustomerProfile {
+  id: string;
+  user_id: string;
+  full_name: string;
+  phone: string;
+  email?: string;
+  date_of_birth?: string | null;
+  gender?: 'male' | 'female' | 'other' | null;
+  avatar_url?: string | null;
+  price_level_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WishlistItem {
+  id: string;
+  user_id: string;
+  product_id: string;
+  product?: ProductWithDetails;
+  price_when_added?: number;
+  created_at: string;
+}
+
+export type ReviewStatus = 'pending' | 'published' | 'rejected';
+
+export interface ProductReview {
+  id: string;
+  product_id: string;
+  user_id: string;
+  order_id?: string | null;
+  order_item_id?: string | null;
+  rating: number; // 1 - 5
+  title: string;
+  review: string;
+  photos?: string[];
+  is_verified_purchase: boolean;
+  status: ReviewStatus;
+  admin_reply?: string | null;
+  created_at: string;
+  updated_at: string;
+  customer_name?: string;
+  customer_avatar?: string | null;
+  product_name?: string;
+  product_slug?: string;
+  product_image?: string;
+}
+
+export interface ProductReviewSummary {
+  average_rating: number;
+  total_reviews: number;
+  distribution: {
+    5: number;
+    4: number;
+    3: number;
+    2: number;
+    1: number;
+  };
+  percentages: {
+    5: number;
+    4: number;
+    3: number;
+    2: number;
+    1: number;
+  };
+}
+
+export interface LoyaltyAccount {
+  id: string;
+  user_id: string;
+  current_points: number;
+  lifetime_points: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type LoyaltyTransactionType =
+  | 'earn'
+  | 'redeem'
+  | 'expire'
+  | 'adjustment'
+  | 'refund_reversal';
+
+export interface LoyaltyTransaction {
+  id: string;
+  user_id: string;
+  type: LoyaltyTransactionType;
+  points: number;
+  reference_type?: string | null;
+  reference_id?: string | null;
+  description: string;
+  created_at: string;
+}
+
+export type LoyaltyRewardType = 'discount' | 'voucher' | 'free_shipping';
+
+export interface LoyaltyReward {
+  id: string;
+  name: string;
+  description?: string | null;
+  points_required: number;
+  reward_type: LoyaltyRewardType;
+  reward_value: number;
+  is_active: boolean;
+  stock: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type LoyaltyRedemptionStatus = 'pending' | 'completed' | 'cancelled';
+
+export interface LoyaltyRedemption {
+  id: string;
+  user_id: string;
+  reward_id: string;
+  points_used: number;
+  voucher_id?: string | null;
+  voucher_code?: string | null;
+  status: LoyaltyRedemptionStatus;
+  created_at: string;
+  reward?: LoyaltyReward;
+}
+
+export interface LoyaltySettings {
+  id: string;
+  points_per_currency: number; // e.g. 10000 -> 1 pt per 10k IDR
+  minimum_redeem_points: number;
+  expiration_enabled: boolean;
+  expiration_months: number;
+  is_active: boolean;
+  updated_at: string;
+}
+
+export interface AccountDashboardData {
+  profile: CustomerProfile | null;
+  total_orders: number;
+  total_spending: number;
+  wishlist_count: number;
+  loyalty_points: number;
+  pending_reviews_count: number;
+  recent_orders: OrderWithDetails[];
+}
+
+// ==============================================================================
+// TAHAP 9: SEO, CONTENT, MARKETING, NOTIFICATIONS, ABANDONED CART & FUNNEL
+// ==============================================================================
+
+// 1. Content Management System (CMS) & Blog
+export type ContentType =
+  | 'article'
+  | 'blog'
+  | 'buying_guide'
+  | 'product_guide'
+  | 'news'
+  | 'promotion_landing';
+
+export type ContentStatus = 'draft' | 'published' | 'archived';
+
+export interface Content {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  content: string;
+  featured_image: string | null;
+  content_type: ContentType;
+  status: ContentStatus;
+  author_id?: string | null;
+  author_name?: string | null;
+  published_at?: string | null;
+  seo_title?: string | null;
+  seo_description?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ContentProduct {
+  id: string;
+  content_id: string;
+  product_id: string;
+}
+
+export interface ContentWithProducts extends Content {
+  related_products?: ProductWithDetails[];
+}
+
+export interface ProductSlugHistory {
+  id: string;
+  product_id: string;
+  old_slug: string;
+  new_slug: string;
+  created_at: string;
+}
+
+// 2. Marketing Banners & Landing Pages
+export type BannerPosition =
+  | 'homepage_hero'
+  | 'homepage_secondary'
+  | 'category'
+  | 'product'
+  | 'promotion';
+
+export interface Banner {
+  id: string;
+  title: string;
+  subtitle?: string | null;
+  image_url: string;
+  mobile_image_url?: string | null;
+  link_url?: string | null;
+  button_text?: string | null;
+  position: BannerPosition;
+  start_at: string;
+  end_at: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BannerEvent {
+  id: string;
+  banner_id: string;
+  event_type: 'view' | 'click';
+  session_id: string;
+  user_id?: string | null;
+  created_at: string;
+}
+
+export interface BannerMetrics {
+  banner_id: string;
+  title: string;
+  position: BannerPosition;
+  views: number;
+  clicks: number;
+  ctr: number; // (clicks / views) * 100
+}
+
+// 3. Customer Notifications
+export interface CustomerNotification {
+  id: string;
+  user_id: string; // or customer identifier
+  type: NotificationType;
+  title: string;
+  message: string;
+  entity_type: 'order' | 'product' | 'promotion' | 'system';
+  entity_id?: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+// 4. Abandoned Cart & Recovery
+export type CartActivityEvent =
+  | 'created'
+  | 'item_added'
+  | 'item_removed'
+  | 'quantity_changed'
+  | 'checkout_started'
+  | 'order_created';
+
+export interface CartActivity {
+  id: string;
+  cart_id: string;
+  user_id?: string | null;
+  event_type: CartActivityEvent;
+  created_at: string;
+}
+
+export interface AbandonedCartSummary {
+  cart_id: string;
+  user_id?: string | null;
+  customer_name?: string;
+  customer_email?: string;
+  customer_phone?: string;
+  item_count: number;
+  items_summary: string;
+  cart_value: number;
+  last_activity: string;
+  created_at: string;
+  is_abandoned: boolean;
+  recovery_token?: string;
+  recovery_url?: string;
+}
+
+export interface CartRecoveryToken {
+  id: string;
+  token: string;
+  cart_id: string;
+  user_id?: string | null;
+  items_snapshot: any[];
+  expires_at: string;
+  is_used: boolean;
+  created_at: string;
+}
+
+// 5. Stock & Price Alerts
+export type StockAlertStatus = 'active' | 'notified' | 'cancelled';
+
+export interface StockAlert {
+  id: string;
+  user_id?: string | null;
+  product_id: string;
+  email: string;
+  phone?: string | null;
+  status: StockAlertStatus;
+  created_at: string;
+  notified_at?: string | null;
+  product?: ProductWithDetails;
+}
+
+export type PriceAlertStatus = 'active' | 'triggered' | 'cancelled';
+
+export interface PriceAlert {
+  id: string;
+  user_id: string;
+  product_id: string;
+  target_price: number;
+  status: PriceAlertStatus;
+  created_at: string;
+  triggered_at?: string | null;
+  product?: ProductWithDetails;
+}
+
+// 6. Marketing Analytics & Conversion Funnel
+export interface UTMParams {
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
+  utm_content?: string | null;
+}
+
+export interface CampaignAnalytics {
+  campaign: string;
+  source: string;
+  medium: string;
+  sessions: number;
+  orders: number;
+  revenue: number;
+  conversion_rate: number; // (orders / sessions) * 100
+}
+
+export interface ConversionFunnelStage {
+  stage: string;
+  label: string;
+  count: number;
+  drop_rate: number;
+  conversion_rate: number; // percentage of previous or overall
+}
+
+export interface ConversionFunnelReport {
+  visitors: number;
+  product_views: number;
+  add_to_cart: number;
+  checkout_started: number;
+  orders: number;
+  paid_orders: number;
+  checkout_conversion_rate: number; // (orders / checkout_started) * 100
+  product_conversion_rate: number;  // (orders / product_views) * 100
+  overall_conversion_rate: number;  // (paid_orders / visitors) * 100
+  stages: ConversionFunnelStage[];
+}
+
+export interface MarketingDashboardMetrics {
+  total_banners: number;
+  active_banners: number;
+  total_banner_views: number;
+  total_banner_clicks: number;
+  average_banner_ctr: number;
+  total_articles: number;
+  published_articles: number;
+  abandoned_carts_count: number;
+  recovered_carts_count: number;
+  recovery_rate: number;
+  total_active_stock_alerts: number;
+  total_active_price_alerts: number;
+}
+
+// ==============================================================================
+// TAHAP 10: PRODUCTION HARDENING, SECURITY, PERFORMANCE, DEPLOYMENT & MONITORING
+// ==============================================================================
+
+export type SystemHealthStatus = 'healthy' | 'degraded' | 'unhealthy';
+
+export interface SubsystemHealth {
+  name: string;
+  status: SystemHealthStatus;
+  latency_ms?: number;
+  message: string;
+  details?: Record<string, any>;
+  checked_at: string;
+}
+
+export interface SystemMemoryInfo {
+  heap_used_mb: number;
+  heap_total_mb: number;
+  rss_mb: number;
+  heap_usage_percent: number;
+}
+
+export interface SecurityPoliciesReport {
+  csp_enabled: boolean;
+  rate_limiting_enabled: boolean;
+  hsts_enabled: boolean;
+  x_frame_protection: boolean;
+  input_sanitization: boolean;
+  sensitive_masking: boolean;
+}
+
+export interface SystemPerformanceMetrics {
+  active_cache_keys: number;
+  cache_hit_rate_percent: number;
+  average_response_ms: number;
+  total_requests_served: number;
+}
+
+export interface SystemHealthReport {
+  status: SystemHealthStatus;
+  timestamp: string;
+  uptime_seconds: number;
+  uptime_human: string;
+  node_env: string;
+  app_version: string;
+  memory: SystemMemoryInfo;
+  subsystems: {
+    database: SubsystemHealth;
+    payment_gateway: SubsystemHealth;
+    rate_limiter: SubsystemHealth;
+    cache_engine: SubsystemHealth;
+    storage: SubsystemHealth;
+  };
+  security: SecurityPoliciesReport;
+  performance: SystemPerformanceMetrics;
+  environment_checks: {
+    key: string;
+    label: string;
+    passed: boolean;
+    description: string;
+  }[];
+  production_score: number; // 0 - 100
+}
+
+export type SecurityLogLevel = 'INFO' | 'WARN' | 'ERROR' | 'SECURITY';
+export type SecurityLogCategory =
+  | 'auth'
+  | 'rate_limit'
+  | 'payment'
+  | 'inventory'
+  | 'admin'
+  | 'system'
+  | 'maintenance';
+
+export interface SecurityAuditEntry {
+  id: string;
+  timestamp: string;
+  level: SecurityLogLevel;
+  category: SecurityLogCategory;
+  message: string;
+  ip_address?: string;
+  user_agent?: string;
+  path?: string;
+  actor_name?: string;
+  details?: any;
+}
+
+export interface MaintenanceModeConfig {
+  enabled: boolean;
+  title: string;
+  message: string;
+  estimated_end_time?: string | null;
+  allowed_ips?: string[];
+  bypass_key: string;
+  updated_at: string;
+  updated_by?: string;
+}
+
+export type FeatureFlagCategory = 'security' | 'payment' | 'catalog' | 'performance';
+
+export interface FeatureFlag {
+  key: string;
+  name: string;
+  description: string;
+  category: FeatureFlagCategory;
+  enabled: boolean;
+  updated_at: string;
+}
+
+export type BackupType = 'full' | 'catalog' | 'orders' | 'customers' | 'inventory';
+
+export interface BackupHistoryItem {
+  id: string;
+  type: BackupType;
+  file_name: string;
+  format: 'json' | 'csv';
+  record_count: number;
+  file_size_bytes: number;
+  created_at: string;
+  checksum?: string;
+}
+
+
 
 
 

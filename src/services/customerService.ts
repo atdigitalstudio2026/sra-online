@@ -205,3 +205,8 @@ export async function exportCustomersToCsv(actor: AdminUser): Promise<string> {
 
   return csvContent;
 }
+
+/**
+ * Compatibility alias for getCustomerMetrics
+ */
+export const getCustomers = getCustomerMetrics;

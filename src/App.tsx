@@ -32,7 +32,36 @@ import { AdminAnalyticsPage } from './pages/admin/AdminAnalyticsPage';
 import { AdminSalesReportPage } from './pages/admin/AdminSalesReportPage';
 import { AdminInventoryPage } from './pages/admin/AdminInventoryPage';
 import { AdminUsersPage } from './pages/admin/AdminUsersPage';
+import { AdminSystemHealthPage } from './pages/admin/AdminSystemHealthPage';
+import { AdminSecurityAuditPage } from './pages/admin/AdminSecurityAuditPage';
+import { AdminSystemSettingsPage } from './pages/admin/AdminSystemSettingsPage';
+import { AdminBackupRestorePage } from './pages/admin/AdminBackupRestorePage';
+import { AdminMarketingHubPage } from './pages/admin/AdminMarketingHubPage';
+import { AdminBannersPage } from './pages/admin/AdminBannersPage';
+import { AdminContentPage } from './pages/admin/AdminContentPage';
+import { AdminAbandonedCartsPage } from './pages/admin/AdminAbandonedCartsPage';
+import { AdminAlertsPage } from './pages/admin/AdminAlertsPage';
+import { AdminConversionFunnelPage } from './pages/admin/AdminConversionFunnelPage';
+import { AdminMarketingAnalyticsPage } from './pages/admin/AdminMarketingAnalyticsPage';
+import { BlogPage } from './pages/BlogPage';
+import { BlogPostPage } from './pages/BlogPostPage';
+import { PromoLandingPage } from './pages/PromoLandingPage';
+import { CartRecoveryPage } from './pages/CartRecoveryPage';
+import { NotificationCenterPage } from './pages/NotificationCenterPage';
+import { GlobalErrorBoundary } from './components/common/GlobalErrorBoundary';
+import { MaintenanceOverlay } from './components/common/MaintenanceOverlay';
+import { NetworkStatusBanner } from './components/common/NetworkStatusBanner';
+import { isStorefrontInMaintenance, getMaintenanceConfig } from './services/maintenanceService';
 import { PaymentResultPage } from './pages/PaymentResultPage';
+import { AccountLayout } from './components/account/AccountLayout';
+import { AccountDashboardPage } from './pages/account/AccountDashboardPage';
+import { AccountProfilePage } from './pages/account/AccountProfilePage';
+import { AccountOrdersPage } from './pages/account/AccountOrdersPage';
+import { AccountAddressesPage } from './pages/account/AccountAddressesPage';
+import { AccountWishlistPage } from './pages/account/AccountWishlistPage';
+import { AccountReviewsPage } from './pages/account/AccountReviewsPage';
+import { AccountLoyaltyPage } from './pages/account/AccountLoyaltyPage';
+import { AccountOrderDetailPage } from './pages/account/AccountOrderDetailPage';
 import { LoadingState } from './components/common/LoadingState';
 import { ErrorState } from './components/common/ErrorState';
 import { useCategories } from './hooks/useCategories';
@@ -136,6 +165,22 @@ export default function App() {
   const adminCustomerDetailMatch = pathname.match(/^\/admin\/customers\/([^/]+)$/);
   const adminDetailCustomerId = adminCustomerDetailMatch ? decodeURIComponent(adminCustomerDetailMatch[1]) : undefined;
 
+  // 8. Blog Post Detail Route: /blog/:slug
+  const blogDetailMatch = pathname.match(/^\/blog\/([^/]+)$/);
+  const blogSlug = blogDetailMatch ? blogDetailMatch[1] : undefined;
+
+  // 9. Promo Landing Page Route: /promo/:slug
+  const promoMatch = pathname.match(/^\/promo\/([^/]+)$/);
+  const promoSlug = promoMatch ? promoMatch[1] : undefined;
+
+  // 10. Cart Recovery Route: /cart/recover/:token
+  const recoveryMatch = pathname.match(/^\/cart\/recover\/([^/]+)$/);
+  const recoveryToken = recoveryMatch ? decodeURIComponent(recoveryMatch[1]) : undefined;
+
+  // 11. Account Order Detail Route: /account/orders/:orderNumber
+  const accountOrderDetailMatch = pathname.match(/^\/account\/orders\/([^/]+)$/);
+  const accountDetailOrderNumber = accountOrderDetailMatch ? decodeURIComponent(accountOrderDetailMatch[1]) : undefined;
+
   // Global search submit handler from Header
   const handleSearchSubmit = (query: string) => {
     updateFilters({ search: query, page: 1 });
@@ -149,6 +194,18 @@ export default function App() {
 
   // Render Page Content based on Route
   const renderContent = () => {
+    // -------------------------------------------------------------
+    // STOREFRONT MAINTENANCE MODE OVERLAY (Tahap 10)
+    // -------------------------------------------------------------
+    if (!pathname.startsWith('/admin') && isStorefrontInMaintenance()) {
+      return (
+        <MaintenanceOverlay
+          config={getMaintenanceConfig()}
+          onBypassed={() => navigate(currentPath)}
+        />
+      );
+    }
+
     // -------------------------------------------------------------
     // ADMIN ROUTES
     // -------------------------------------------------------------
@@ -404,6 +461,151 @@ export default function App() {
       );
     }
 
+    // Tahap 10: Production Hardening, System Health, Security, & Backups
+    if (pathname === '/admin/system-health') {
+      return (
+        <AdminLayout
+          currentPath="/admin/system-health"
+          onNavigate={navigate}
+          title="Monitoring & Observabilitas Sistem"
+          subtitle="Status kesehatan subsistem server, latensi PostgreSQL, metrik performa, dan checklist produksi."
+        >
+          <AdminSystemHealthPage onNavigate={navigate} />
+        </AdminLayout>
+      );
+    }
+
+    if (pathname === '/admin/security-logs') {
+      return (
+        <AdminLayout
+          currentPath="/admin/security-logs"
+          onNavigate={navigate}
+          title="Log Keamanan & Audit"
+          subtitle="Rekaman jejak aktivitas autentikasi, pembatasan rate limit, dan log keamanan sistem."
+        >
+          <AdminSecurityAuditPage onNavigate={navigate} />
+        </AdminLayout>
+      );
+    }
+
+    if (pathname === '/admin/system-settings') {
+      return (
+        <AdminLayout
+          currentPath="/admin/system-settings"
+          onNavigate={navigate}
+          title="Pengaturan Sistem & Feature Flags"
+          subtitle="Kendali mode pemeliharaan (maintenance mode), bypass key pengembang, dan sakelar fitur dinamis."
+        >
+          <AdminSystemSettingsPage onNavigate={navigate} />
+        </AdminLayout>
+      );
+    }
+
+    if (pathname === '/admin/backup') {
+      return (
+        <AdminLayout
+          currentPath="/admin/backup"
+          onNavigate={navigate}
+          title="Cadangan & Ekspor Data"
+          subtitle="Unduh snapshot lengkap katalog produk, pesanan, inventaris, dan pelanggan dalam format CSV atau JSON."
+        >
+          <AdminBackupRestorePage onNavigate={navigate} />
+        </AdminLayout>
+      );
+    }
+
+    // Tahap 9: Marketing, CMS, Abandoned Carts, & Alerts
+    if (pathname === '/admin/marketing') {
+      return (
+        <AdminLayout
+          currentPath="/admin/marketing"
+          onNavigate={navigate}
+          title="Pusat Pemasaran & Konversi"
+          subtitle="Ringkasan performa banner promo, pemulihan keranjang belanja, dan manajemen konten edukasi."
+        >
+          <AdminMarketingHubPage onNavigate={navigate} />
+        </AdminLayout>
+      );
+    }
+
+    if (pathname === '/admin/marketing/banners') {
+      return (
+        <AdminLayout
+          currentPath="/admin/marketing/banners"
+          onNavigate={navigate}
+          title="Kelola Banner Promosi"
+          subtitle="Banner hero beranda, carousel penawaran komoditas, dan statistik rasio klik (CTR)."
+        >
+          <AdminBannersPage onNavigate={navigate} />
+        </AdminLayout>
+      );
+    }
+
+    if (pathname === '/admin/marketing/content') {
+      return (
+        <AdminLayout
+          currentPath="/admin/marketing/content"
+          onNavigate={navigate}
+          title="Manajemen Konten & Artikel (CMS)"
+          subtitle="Publikasi artikel panduan komoditas pangan, resep, dan optimasi SEO."
+        >
+          <AdminContentPage onNavigate={navigate} />
+        </AdminLayout>
+      );
+    }
+
+    if (pathname === '/admin/marketing/abandoned-carts') {
+      return (
+        <AdminLayout
+          currentPath="/admin/marketing/abandoned-carts"
+          onNavigate={navigate}
+          title="Keranjang Tertinggal (Abandoned Carts)"
+          subtitle="Pemulihan keranjang belanja yang belum selesai checkout dan tautan pemulihan instan."
+        >
+          <AdminAbandonedCartsPage onNavigate={navigate} />
+        </AdminLayout>
+      );
+    }
+
+    if (pathname === '/admin/marketing/alerts') {
+      return (
+        <AdminLayout
+          currentPath="/admin/marketing/alerts"
+          onNavigate={navigate}
+          title="Notifikasi Stok & Perubahan Harga"
+          subtitle="Daftar pengingat ketersediaan komoditas dan alert harga target pelanggan."
+        >
+          <AdminAlertsPage onNavigate={navigate} />
+        </AdminLayout>
+      );
+    }
+
+    if (pathname === '/admin/marketing/funnel') {
+      return (
+        <AdminLayout
+          currentPath="/admin/marketing/funnel"
+          onNavigate={navigate}
+          title="Corong Konversi (Conversion Funnel)"
+          subtitle="Analisis drop-off rate dari kunjungan katalog, keranjang, hingga pesanan terbayar."
+        >
+          <AdminConversionFunnelPage onNavigate={navigate} />
+        </AdminLayout>
+      );
+    }
+
+    if (pathname === '/admin/marketing/analytics') {
+      return (
+        <AdminLayout
+          currentPath="/admin/marketing/analytics"
+          onNavigate={navigate}
+          title="Analitik Kampanye & UTM"
+          subtitle="Efektivitas sumber trafik pemasaran dan tracking performa penjualan."
+        >
+          <AdminMarketingAnalyticsPage onNavigate={navigate} />
+        </AdminLayout>
+      );
+    }
+
     // -------------------------------------------------------------
     // STOREFRONT ROUTES
     // -------------------------------------------------------------
@@ -573,6 +775,73 @@ export default function App() {
       );
     }
 
+    // -------------------------------------------------------------
+    // ACCOUNT PORTAL ROUTES
+    // -------------------------------------------------------------
+    if (accountDetailOrderNumber) {
+      return (
+        <AccountLayout currentPath="/account/orders" onNavigate={navigate}>
+          <AccountOrderDetailPage orderNumber={accountDetailOrderNumber} onNavigate={navigate} />
+        </AccountLayout>
+      );
+    }
+
+    if (pathname === '/account') {
+      return (
+        <AccountLayout currentPath="/account" onNavigate={navigate}>
+          <AccountDashboardPage onNavigate={navigate} />
+        </AccountLayout>
+      );
+    }
+
+    if (pathname === '/account/profile') {
+      return (
+        <AccountLayout currentPath="/account/profile" onNavigate={navigate}>
+          <AccountProfilePage onNavigate={navigate} />
+        </AccountLayout>
+      );
+    }
+
+    if (pathname === '/account/orders') {
+      return (
+        <AccountLayout currentPath="/account/orders" onNavigate={navigate}>
+          <AccountOrdersPage onNavigate={navigate} />
+        </AccountLayout>
+      );
+    }
+
+    if (pathname === '/account/addresses') {
+      return (
+        <AccountLayout currentPath="/account/addresses" onNavigate={navigate}>
+          <AccountAddressesPage onNavigate={navigate} />
+        </AccountLayout>
+      );
+    }
+
+    if (pathname === '/account/wishlist') {
+      return (
+        <AccountLayout currentPath="/account/wishlist" onNavigate={navigate}>
+          <AccountWishlistPage onNavigate={navigate} />
+        </AccountLayout>
+      );
+    }
+
+    if (pathname === '/account/reviews') {
+      return (
+        <AccountLayout currentPath="/account/reviews" onNavigate={navigate}>
+          <AccountReviewsPage onNavigate={navigate} />
+        </AccountLayout>
+      );
+    }
+
+    if (pathname === '/account/loyalty') {
+      return (
+        <AccountLayout currentPath="/account/loyalty" onNavigate={navigate}>
+          <AccountLoyaltyPage onNavigate={navigate} />
+        </AccountLayout>
+      );
+    }
+
     // Customer Orders List Page: /orders or /my-orders
     if (pathname === '/orders' || pathname === '/my-orders') {
       return (
@@ -587,12 +856,83 @@ export default function App() {
       );
     }
 
+    // Cart Recovery Route: /cart/recover/:token
+    if (recoveryToken) {
+      return (
+        <StorefrontLayout
+          currentPath={currentPath}
+          categories={categories}
+          onNavigate={navigate}
+          onSearchSubmit={handleSearchSubmit}
+        >
+          <CartRecoveryPage token={recoveryToken} onNavigate={navigate} />
+        </StorefrontLayout>
+      );
+    }
+
+    // Promo Landing Page Route: /promo/:slug
+    if (promoSlug) {
+      return (
+        <StorefrontLayout
+          currentPath={currentPath}
+          categories={categories}
+          onNavigate={navigate}
+          onSearchSubmit={handleSearchSubmit}
+        >
+          <PromoLandingPage slug={promoSlug} onNavigate={navigate} />
+        </StorefrontLayout>
+      );
+    }
+
+    // Blog Post Detail: /blog/:slug
+    if (blogSlug) {
+      return (
+        <StorefrontLayout
+          currentPath={currentPath}
+          categories={categories}
+          onNavigate={navigate}
+          onSearchSubmit={handleSearchSubmit}
+        >
+          <BlogPostPage slug={blogSlug} onNavigate={navigate} />
+        </StorefrontLayout>
+      );
+    }
+
+    // Blog Hub / Articles List: /blog
+    if (pathname === '/blog') {
+      return (
+        <StorefrontLayout
+          currentPath={currentPath}
+          categories={categories}
+          onNavigate={navigate}
+          onSearchSubmit={handleSearchSubmit}
+        >
+          <BlogPage onNavigate={navigate} />
+        </StorefrontLayout>
+      );
+    }
+
+    // Customer Notification Center: /notifications
+    if (pathname === '/notifications') {
+      return (
+        <StorefrontLayout
+          currentPath={currentPath}
+          categories={categories}
+          onNavigate={navigate}
+          onSearchSubmit={handleSearchSubmit}
+        >
+          <NotificationCenterPage onNavigate={navigate} />
+        </StorefrontLayout>
+      );
+    }
+
     // All Products Catalog: /products
     if (pathname === '/products') {
       return (
         <StorefrontLayout
           currentPath={currentPath}
           categories={categories}
+          brands={brands}
           onNavigate={navigate}
           onSearchSubmit={handleSearchSubmit}
         >
@@ -619,6 +959,7 @@ export default function App() {
       <StorefrontLayout
         currentPath={currentPath}
         categories={categories}
+        brands={brands}
         onNavigate={navigate}
         onSearchSubmit={handleSearchSubmit}
       >
@@ -636,10 +977,13 @@ export default function App() {
   };
 
   return (
-    <ToastProvider>
-      <CartProvider>
-        {renderContent()}
-      </CartProvider>
-    </ToastProvider>
+    <GlobalErrorBoundary>
+      <ToastProvider>
+        <CartProvider>
+          {renderContent()}
+          <NetworkStatusBanner />
+        </CartProvider>
+      </ToastProvider>
+    </GlobalErrorBoundary>
   );
 }

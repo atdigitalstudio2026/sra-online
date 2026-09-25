@@ -13,6 +13,10 @@ import { getCart, clearCart } from './cartService';
 import { createCustomerAddress } from './addressService';
 import { recordOrderInventoryMovement } from './inventoryService';
 import { logAdminAction } from './auditLogService';
+import { getStoredUTM, recordFunnelEvent } from '../utils/marketing';
+import { sendCustomerNotification } from './notificationService';
+import { recordCartActivity } from './abandonedCartService';
+import { formatRupiah } from '../utils/formatters';
 
 const LOCAL_ORDERS_KEY = 'fmcg_orders';
 const LOCAL_ORDER_ITEMS_KEY = 'fmcg_order_items';
@@ -235,6 +239,10 @@ export async function createOrder(
     grand_total: grandTotal,
     status: 'pending_payment',
     payment_status: 'unpaid',
+    utm_source: getStoredUTM()?.utm_source || null,
+    utm_medium: getStoredUTM()?.utm_medium || null,
+    utm_campaign: getStoredUTM()?.utm_campaign || null,
+    utm_content: getStoredUTM()?.utm_content || null,
     created_at: now,
     updated_at: now,
   };
@@ -396,6 +404,18 @@ export async function createOrder(
     history: [initialHistory],
     shipping_method: shippingMethod,
   };
+
+  // Tahap 9: Marketing Funnel, Cart Activity, & Customer Notification (Sections 33, 35, 52)
+  recordFunnelEvent('order_created', { order_id: orderRecord.id, user_id: userId || null });
+  await recordCartActivity(cart.id, 'order_created', userId || null);
+  await sendCustomerNotification(
+    userId || null,
+    'order_created',
+    'Pesanan Anda Berhasil Dibuat',
+    `Pesanan ${orderRecord.order_number} telah berhasil dibuat dengan total ${formatRupiah(grandTotal)}. Menunggu pembayaran.`,
+    'order',
+    orderRecord.order_number
+  );
 
   return { success: true, order: orderWithDetails };
 }
@@ -913,6 +933,27 @@ export async function updateOrderStatus(
     { status: newStatus, note: note || null },
     changedBy
   ).catch((e) => console.warn('Audit log error:', e));
+
+  // Customer Notifications (Section 33)
+  if (newStatus === 'shipped') {
+    sendCustomerNotification(
+      currentOrder.user_id,
+      'order_shipped',
+      'Pesanan Anda Telah Dikirim',
+      `Pesanan ${currentOrder.order_number} telah diserahkan ke jasa kurir dan sedang dalam perjalanan pengiriman.`,
+      'order',
+      currentOrder.order_number
+    ).catch(() => {});
+  } else if (newStatus === 'completed') {
+    sendCustomerNotification(
+      currentOrder.user_id,
+      'order_delivered',
+      'Pesanan Anda Telah Diterima',
+      `Pesanan ${currentOrder.order_number} telah diterima dengan baik. Terima kasih atas kepercayaan Anda berbelanja komoditas pangan bersama kami!`,
+      'order',
+      currentOrder.order_number
+    ).catch(() => {});
+  }
 
   const updatedDetails = await getOrderById(orderId);
   if (!updatedDetails) {

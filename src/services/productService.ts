@@ -10,6 +10,8 @@ import {
 } from '../types';
 import { INITIAL_PRODUCTS, INITIAL_CATEGORIES, INITIAL_BRANDS } from './seedData';
 import { uploadProductImage } from './storageService';
+import { recordProductSlugChange, checkProductSlugRedirect } from './contentService';
+import { checkAndTriggerStockAlerts, checkAndTriggerPriceAlerts } from './alertService';
 
 const LOCAL_STORAGE_KEY = 'fmcg_products';
 
@@ -316,7 +318,16 @@ export async function getProductBySlug(slug: string): Promise<ProductWithDetails
     }
   }
 
-  return getLocalProductBySlug(slug);
+  const localProd = getLocalProductBySlug(slug);
+  if (localProd) return localProd;
+
+  // Check if slug has a history redirect (Section 16)
+  const redirectedSlug = await checkProductSlugRedirect(slug);
+  if (redirectedSlug && redirectedSlug !== slug) {
+    return getProductBySlug(redirectedSlug);
+  }
+
+  return null;
 }
 
 function getLocalProductBySlug(slug: string): ProductWithDetails | null {
@@ -452,6 +463,10 @@ export async function createProduct(formData: ProductFormData): Promise<ProductW
     is_active: formData.is_active,
     is_featured: formData.is_featured,
     is_best_seller: formData.is_best_seller,
+    seo_title: formData.seo_title || null,
+    seo_description: formData.seo_description || null,
+    seo_keywords: formData.seo_keywords || null,
+    canonical_url: formData.canonical_url || null,
     created_at: now,
     updated_at: now,
   };
@@ -539,8 +554,26 @@ export async function updateProduct(
     is_active: formData.is_active,
     is_featured: formData.is_featured,
     is_best_seller: formData.is_best_seller,
+    seo_title: formData.seo_title || null,
+    seo_description: formData.seo_description || null,
+    seo_keywords: formData.seo_keywords || null,
+    canonical_url: formData.canonical_url || null,
     updated_at: now,
   };
+
+  // Inspect previous state for slug change and alerts (Section 16, 42, 44)
+  const existingProd = getLocalProductById(id);
+  if (existingProd) {
+    if (existingProd.slug && existingProd.slug !== updates.slug) {
+      recordProductSlugChange(id, existingProd.slug, updates.slug).catch(() => {});
+    }
+    if (existingProd.stock <= 0 && updates.stock > 0) {
+      checkAndTriggerStockAlerts(id, updates.stock, updates.name).catch(() => {});
+    }
+    if (updates.price < existingProd.price) {
+      checkAndTriggerPriceAlerts(id, updates.price, updates.name).catch(() => {});
+    }
+  }
 
   if (isSupabaseConfigured() && supabase) {
     const { error: prodError } = await supabase

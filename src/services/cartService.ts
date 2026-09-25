@@ -1,6 +1,8 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { CartWithItems, CartItemWithProduct } from '../types';
 import { getProductById } from './productService';
+import { recordCartActivity } from './abandonedCartService';
+import { recordFunnelEvent } from '../utils/marketing';
 
 const SESSION_STORAGE_KEY = 'fmcg_guest_session_id';
 const LOCAL_GUEST_CART_KEY = 'fmcg_local_guest_cart_items';
@@ -347,6 +349,8 @@ export async function addCartItem(
   }
 
   const updatedCart = await getCart(userId);
+  recordCartActivity(cart.id, 'item_added', userId).catch(() => {});
+  recordFunnelEvent('add_to_cart', { product_id: productId, user_id: userId || null });
   return { success: true, cart: updatedCart };
 }
 

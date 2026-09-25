@@ -59,6 +59,12 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   const [isFeatured, setIsFeatured] = useState<boolean>(initialData?.is_featured ?? false);
   const [isBestSeller, setIsBestSeller] = useState<boolean>(initialData?.is_best_seller ?? false);
 
+  // SEO Fields (Section 3, 6)
+  const [seoTitle, setSeoTitle] = useState(initialData?.seo_title || '');
+  const [seoDescription, setSeoDescription] = useState(initialData?.seo_description || '');
+  const [seoKeywords, setSeoKeywords] = useState(initialData?.seo_keywords || '');
+  const [canonicalUrl, setCanonicalUrl] = useState(initialData?.canonical_url || '');
+
   // Images state
   const [images, setImages] = useState<ProductFormData['images']>(
     initialData?.images?.map((img, idx) => ({
@@ -257,6 +263,10 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       is_active: isActive,
       is_featured: isFeatured,
       is_best_seller: isBestSeller,
+      seo_title: seoTitle.trim() || undefined,
+      seo_description: seoDescription.trim() || undefined,
+      seo_keywords: seoKeywords.trim() || undefined,
+      canonical_url: canonicalUrl.trim() || undefined,
       images,
     };
 
@@ -746,6 +756,110 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               ))}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* 5. Optimasi SEO & Metadata Mesin Pencari (Section 3, 6, 7) */}
+      <div className="bg-white border border-stone-200 rounded-xl p-6 shadow-xs space-y-5">
+        <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+          <div>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-stone-900">
+              5. Optimasi SEO & Metadata Mesin Pencari
+            </h2>
+            <p className="text-xs text-stone-500 mt-0.5">
+              Kustomisasi tag judul, deskripsi pencarian, dan tautan kanonikal untuk mesin pencari Google.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const selectedBrand = brands.find((b) => b.id === brandId);
+              setSeoTitle(`${name} | ${selectedBrand ? selectedBrand.name : siteConfig.name}`);
+              setSeoDescription(shortDescription || description.slice(0, 150));
+              setCanonicalUrl(`/products/${slug || slugify(name)}`);
+            }}
+            className="text-xs text-amber-900 hover:text-amber-950 font-semibold underline"
+          >
+            Auto-Generate dari Data Produk
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-stone-700 mb-1">
+              SEO Title (Tag Judul Mesin Pencari)
+            </label>
+            <input
+              type="text"
+              value={seoTitle}
+              onChange={(e) => setSeoTitle(e.target.value)}
+              placeholder={`${name || 'Nama Produk'} | ${siteConfig.name}`}
+              className="w-full px-3.5 py-2 text-xs border border-stone-300 rounded-lg focus:ring-1 focus:ring-amber-900 focus:outline-none"
+            />
+            <p className="text-[11px] text-stone-500 mt-1">
+              Jika dikosongkan, sistem otomatis menggunakan: [Nama Produk] + [Brand].
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-stone-700 mb-1">
+              SEO Meta Description (Deskripsi Cuplikan Hasil Pencarian)
+            </label>
+            <textarea
+              rows={2}
+              value={seoDescription}
+              onChange={(e) => setSeoDescription(e.target.value)}
+              placeholder="Deskripsi ringkas yang menarik calon pembeli saat muncul di hasil pencarian..."
+              className="w-full px-3.5 py-2 text-xs border border-stone-300 rounded-lg focus:ring-1 focus:ring-amber-900 focus:outline-none"
+            />
+            <p className="text-[11px] text-stone-500 mt-1">
+              Disarankan 120-160 karakter untuk keterbacaan optimal di Google.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-stone-700 mb-1">
+                Kata Kunci (Keywords, pisahkan dengan koma)
+              </label>
+              <input
+                type="text"
+                value={seoKeywords}
+                onChange={(e) => setSeoKeywords(e.target.value)}
+                placeholder="kurma ajwa, kurma madinah asli, grosir kurma"
+                className="w-full px-3.5 py-2 text-xs border border-stone-300 rounded-lg focus:ring-1 focus:ring-amber-900 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-stone-700 mb-1">
+                Canonical URL
+              </label>
+              <input
+                type="text"
+                value={canonicalUrl}
+                onChange={(e) => setCanonicalUrl(e.target.value)}
+                placeholder={`/products/${slug || 'slug-produk'}`}
+                className="w-full px-3.5 py-2 text-xs border border-stone-300 rounded-lg focus:ring-1 focus:ring-amber-900 focus:outline-none font-mono text-[11px]"
+              />
+            </div>
+          </div>
+
+          {/* Real-time Google SERP Snippet Preview */}
+          <div className="p-4 bg-stone-50 rounded-lg border border-stone-200 mt-4 space-y-1">
+            <span className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider block">
+              Pratinjau Hasil Pencarian Google
+            </span>
+            <div className="text-xs text-emerald-800 font-mono">
+              https://sra-store.id/products/{slug || 'nama-produk'}
+            </div>
+            <div className="text-sm font-medium text-blue-800 hover:underline cursor-pointer">
+              {seoTitle || (name ? `${name} | ${siteConfig.name}` : `Nama Produk | ${siteConfig.name}`)}
+            </div>
+            <div className="text-xs text-stone-600 line-clamp-2">
+              {seoDescription || shortDescription || 'Beli komoditas pangan pilihan berkualitas tinggi dengan harga grosir dan retail terbaik.'}
+            </div>
+          </div>
         </div>
       </div>
 
